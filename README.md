@@ -14,6 +14,7 @@ A simple Discord self-bot that deletes your own messages from all DM channels.
 > Add your discord token in `token` (required)
 > Set prefix (optional)
 > Set limit (default is 1) / Set limit to `None` for all messages
+> Send `cleandm` with your prefix added at first (no space) in any channel
 
 ## Note
 > Only deletes your own messages — it cannot delete messages sent by others
