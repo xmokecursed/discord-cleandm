@@ -17,6 +17,23 @@ limit = "" #amount of messages to delete | default is 1
 min = 2
 max = 5
 
+#after cleaning dm user's id gets add to this file and wont be cleaned again if this program is run again.
+skip = "deleted_users.json"
+
+def load_deleted_users():
+    if os.path.exists(skips):
+        with open(skips, "r") as f:
+            data = json.load(f)
+            return set(data.get("deleted_user_id",[]))
+    return set()
+
+def save_deleted_user(user_id: int):
+    deleted = load_deleted_users()
+    deleted.add(user_id)
+    with open(skips, "w") as f:
+        json.dump({"deteled_user_ids": sorted(list(deleted))}, as f, indent=2)
+    print(f"Saved user id {user_id} to {skips}")
+
 client = discord.Client()
 
 @client.event
@@ -29,29 +46,42 @@ async def on_message(message):
         return
     elif message.content.startswith(f"{prefix}cleandm"):
         total = 0
+        deleted_users = load_deleted_users()
         for dms in client.private_channels:
+            try:
+                recipient = dms.recipient
+                recipient_ids = recipient.id if recipient else None
+            except AttributeError:
+                try:
+                    recipient_id = dms.recipient[0].id if dms.recipient else None
+                except (AttributeError, IndexError):
+                    recipient_id = None
+            if recipient_id and recipient_id in deleted_users:
+                print(f"Skipping {recipient_id}")
+                continue
             deleted = 0
-            async for msg in dms.history(limit=1):
+            async for msg in dms.history(limit=limit):
                 if msg.author == client.user:
                     try:
                         await msg.delete()
                         deleted += 1
-                        if deleted > 0:
-                            try:
-                                print(f"deleted {deleted} messages with {dms.recipients}")
-                                continue
-                            except:
-                                print(f"deleted {deleted} messages with {dms.recipient}")
-                                continue
-                        await asyncio.sleep(random.uniform(min, max))
+                        await asyncio.sleep(random.uniform(min_delay, max_delay))
                     except discord.errors.HTTPException as e:
                         if e.status == 429:
-                            print(f"rate limited stopping command")
+                            print("Rate limited — stopping command.")
                             break
                         else:
-                            print("some error occured stopping command")
+                            print("Some error occurred — stopping command.")
                             break
+            if deleted > 0:
+                try:
+                    print(f"Deleted {deleted} messages with {dms.recipients}")
+                except AttributeError:
+                    print(f"Deleted {deleted} messages with {dms.recipient}")
+                if recipient_id:
+                    save_deleted_user(recipient_id)
             total += deleted
-        print(f"total deleted: {total}")
+        print(f"Total deleted: {total}")
+                
 
 client.run(token)
